@@ -76,7 +76,7 @@ for i in range(4):
  data=im.tobytes('raw','BGRA');assert len(data)==1280*720*4
  name=f'slide-{i}.rgba';(b/'artwork'/name).write_bytes(data)
  artwork_hashes[name]=hashlib.sha256(data).hexdigest()
-env=dict(os.environ,OO_PS4_TOOLCHAIN=str(sdk),DOTNET_SYSTEM_GLOBALIZATION_INVARIANT='1',LD_LIBRARY_PATH=str(a.runtime.resolve()))
+env=dict(os.environ,OO_PS4_TOOLCHAIN=str(sdk),DOTNET_SYSTEM_GLOBALIZATION_INVARIANT='1',LD_LIBRARY_PATH=str(a.runtime.resolve())+os.pathsep+os.environ.get('LD_LIBRARY_PATH',''))
 def run(args):subprocess.run([str(x) for x in args],cwd=b,env=env,check=True)
 run([tools/'create-fself','-in=launcher.elf','-out=launcher.oelf','--eboot','eboot.bin','--paid','0x3800000000000011'])
 for key,value in [('CONTENT_ID',cid),('APP_VER','1.10'),('VERSION','1.10'),('TITLE','Android TV for PS4')]:run([tools/'PkgTool.Core','sfo_setentry','sce_sys/param.sfo',key,'--type','Utf8','--maxsize','48' if key=='CONTENT_ID' else '128' if key=='TITLE' else '8','--value',value])

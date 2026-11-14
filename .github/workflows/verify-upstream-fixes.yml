@@ -14,6 +14,7 @@ jobs:
           python3 releases/release-1.0/tests/test_usb_fstab.py
           python3 releases/release-1.0/tests/test_firmware_1400.py
           python3 releases/release-1.0/tests/test_display_resolution.py
+          python3 releases/release-1.0/tests/test_wifi_handoff.py
           # Legacy installer/boot tests also need generated boot-inputs.h and
           # package assets, so only run standalone host regressions here.
           for test in test_bluetooth_adapter.py test_display_modes.py test_display_release.py test_power_cleanup.py; do

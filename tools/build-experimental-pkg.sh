@@ -4,6 +4,20 @@ set -euo pipefail
 # The pinned OpenOrbis PkgTool.Core uses .NET without a bundled ICU package.
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 ROOT="$(pwd)"
+# PkgTool.Core from OpenOrbis v0.5.4 targets the OpenSSL 1.1 ABI.
+# Ubuntu 26.04 only ships OpenSSL 3. Extract the official Ubuntu 20.04
+# compatibility library into our CI workspace, never install system-wide.
+# Do not use this old crypto library for networking or untrusted inputs.
+mkdir -p "$ROOT/build/ci/libssl-compat"
+curl --fail --location --retry 3 --output "$ROOT/build/ci/openssl-compat.deb" \
+  "https://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.24_amd64.deb"
+dpkg-deb -x "$ROOT/build/ci/openssl-compat.deb" "$ROOT/build/ci/libssl-compat"
+rm "$ROOT/build/ci/openssl-compat.deb"
+COMPAT_LIB="$ROOT/build/ci/libssl-compat/usr/lib/x86_64-linux-gnu"
+test -f "$COMPAT_LIB/libssl.so.1.1"
+test -f "$COMPAT_LIB/libcrypto.so.1.1"
+export LD_LIBRARY_PATH="$COMPAT_LIB:${LD_LIBRARY_PATH:-}"
+echo "OpenOrbis .NET compatibility library available in workspace only"
 mkdir -p "$ROOT/build/ci/source" "$ROOT/build/ci/toolchain" "$ROOT/build/ci/dist" "$ROOT/build/ci/runtime"
 echo "::group::Verify and prepare public OpenOrbis v0.5.4 toolchain"
 curl --fail --location --retry 3 --retry-delay 5 --output "$ROOT/build/ci/toolchain.tar.gz" \
