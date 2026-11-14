@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile the pinned v25.1 source with bounded allocation/ownership handling,
+"""Compile the v25.1-derived loader with separately sourced 14.00 offsets with bounded allocation/ownership handling,
 once per firmware in magic.h. The payload picks the blob for the running
 firmware, so one PKG covers every firmware the loader has offsets for."""
 from pathlib import Path
@@ -16,7 +16,7 @@ CONFIRMED={1352:'2be911d9cc089e348afc2bc13bef070a2bcbb8ed79073771eed503d32b7745e
 defines=re.findall(r'^#(?:if|elif) defined\s+(PS4_\d+_\d+)|^#ifdef\s+(PS4_\d+_\d+)',
     (root/'loader-source/linux/magic.h').read_text(),re.M)
 defines=[a or b for a,b in defines]
-assert len(defines)==len(set(defines))==20,defines
+assert len(defines)==len(set(defines))==21,defines
 def build(define,directory):
     subprocess.run(['make','-s','-C',str(source),'FW_DEFINE='+define,'BUILD_DIR='+str(directory),'clean'],check=True)
     subprocess.run(['make','-s','-C',str(source),'FW_DEFINE='+define,'BUILD_DIR='+str(directory),

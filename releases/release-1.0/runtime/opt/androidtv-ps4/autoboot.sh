@@ -388,6 +388,19 @@ chmod 644 /android/system/vendor/etc/init/android.hardware.graphics.composer@2.1
 atv_write_removable_usb_fstab() {
  local_fstab=$1 local_sysroot=$2
  usb_index=0
+ # Safety: if the internal PS4 disk has not been positively identified,
+ # do not register any USB disks at all. Storage must be probed before vold.
+ internal_found=0
+ for check in "$local_sysroot"/block/sd*; do
+  [ -L "$check" ] || continue
+  name=${check##*/}
+  case "$name" in sd[a-z]|sd[a-z][a-z]) ;; *) continue ;; esac
+  [ -d "$check/${name}27" ] && internal_found=1
+ done
+ if [ "$internal_found" != 1 ]; then
+  stage 'Internal PS4 storage not identified; skipping USB vold registration'
+  return 0
+ fi
  for block in "$local_sysroot"/block/sd*; do
   [ -L "$block" ] || continue
   disk_name=${block##*/}

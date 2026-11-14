@@ -189,7 +189,7 @@ int atv_launch_with_progress(void){
   }
   /* A timeout is a failure guard, never a condition for starting Linux. */
   if(now-started>300000000ULL){
-   snprintf(line,sizeof(line),"Boot timeout: last_stage=%d display_released=%d elapsed_s=%llu\n",
+   snprintf(line,sizeof(line),"Boot timeout: last_stage=%d display_released=%d elapsed_s=%llu\\n",
     last_stage,released,(now-started)/1000000ULL);marker(line);
    if(released)return fail_with_detail("Linux handoff did not finish",
      "Linux was prepared and the app released the display. Compare the launcher log with fresh Linux logs.",ETIMEDOUT);

@@ -10,6 +10,7 @@
 #include "boot-control.h"
 #include "launch-protocol.h"
 #include "display-release.h"
+#include "atv-fw-1400.h"
 #include "build-id.h"
 #define FN(name,type) ((type)((char*)memory+PAYLOAD_##name))
 #define VAR(name,type) (*(type*)((char*)memory+PAYLOAD_##name))
@@ -73,7 +74,16 @@ int _main(void){
  for(unsigned i=0;i<sizeof(atv_kexec_images)/sizeof(atv_kexec_images[0]);i++)if(atv_kexec_images[i].firmware==norm)loader=&atv_kexec_images[i];
  if(!loader){out.rc=ATV_RC_UNSUPPORTED_FIRMWARE;goto done;}
  copybytes((char*)memory+first,atv_kexec_data+loader->offset,loader->bytes);
- VAR(g_fw,void*)=FN(find_offsets_by_fw,void*(*)(unsigned short))(norm);
+ /* Reuse the existing v25.1 AIO kernel entry for other firmwares.
+  * FW 14.00 was added in loader v25.2, but this pinned linux.elf
+  * predates the new fw_table entry. Give kernel_main the exact v25.2
+  * ABI record, not a dangerous 13.52 fallback. Firmware 14.02 is rejected.
+  * Keep the record alive until kexec preparation completes.
+  */
+ if(fwver==1400 && norm==1400)
+  VAR(g_fw,void*)=(void*)&atv_fw_1400;
+ else
+  VAR(g_fw,void*)=FN(find_offsets_by_fw,void*(*)(unsigned short))(norm);
  VAR(g_kexec_s,char*)=(char*)memory+first;VAR(g_kexec_e,char*)=(char*)memory+first+loader->bytes;
  int sb=out.southbridge;
  if(!VAR(g_fw,void*)){out.rc=ATV_RC_UNSUPPORTED_FIRMWARE;goto done;}

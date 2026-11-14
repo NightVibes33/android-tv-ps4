@@ -25,3 +25,19 @@ Stage 7 only means Linux memory and handoff were prepared, not that Linux/Androi
 ## Validation and release status
 
 Run `python3 releases/release-1.0/tests/test_usb_fstab.py`. The checked-in prebuilt initramfs and published PKG were **not rebuilt or updated**. To ship these changes, rebuild the initramfs, update its source manifest and pinned hash, build a new PKG, and verify a real PS4 with a noncritical USB stick. Do not treat source-only validation as a working PS4 release.
+
+## [#85](https://github.com/odiecay/android-tv-ps4/issues/85), [#88](https://github.com/odiecay/android-tv-ps4/issues/88): firmware 14.00
+
+PS4 Linux Loader v25.2 added 14.00 offsets. This branch ports its 14.00 `magic.h` kexec offsets, builds an additional firmware-specific loader, and supplies the 14.00 `fw_offsets_t` record to the existing embedded AIO helper. It **does not reuse 13.52 offsets** for 14.00. The embedded `linux.elf` remains pinned, so this is an ABI-level compatibility experiment with a separate 14.00 table, not a new external image. Source reference: `SENeoV/ps4-linux-loader-ps4linux` commit `581438f804f5fc288cf310abad585f93260e4f1d`, derived from ps4-linux-loader. The 14.00 helper structure has a host ABI test; its kernel addresses and startup remain untested on an actual firmware 14.00 console.
+
+14.02 stays unsupported here. A newer loader tag advertising 14.02 is **not** proof it shares 14.00 kernel symbols.
+
+## [#67](https://github.com/odiecay/android-tv-ps4/issues/67): display size policy
+
+The old Android framework script always forced `1920x1080`. It now reads connected HDMI modes from sysfs: 1080p if explicitly listed, otherwise 720p if listed, otherwise resets size/density and leaves the display native. This cannot fix HDMI outages occurring *before* Android starts.
+
+## More safeguards
+
+USB enumeration is now fail-closed if the PS4's internal partition 27 cannot be identified. This prevents an ambiguous USB bus from being exported to Android's storage manager.
+
+The CI workflow checks both policies and builds the isolated 14.00 kexec object. Its passing status only establishes host compatibility, not PS4 hardware behavior.
