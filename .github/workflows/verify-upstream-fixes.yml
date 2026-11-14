@@ -1,0 +1,13 @@
+name: Verify upstream issue experiments
+on:
+  push:
+    branches: [fix/upstream-usb-boot-diagnostics]
+  pull_request:
+    branches: [main]
+jobs:
+  host-usb-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shell syntax and removable-storage safety
+        run: python3 releases/release-1.0/tests/test_usb_fstab.py

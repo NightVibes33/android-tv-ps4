@@ -103,6 +103,7 @@ static int fail_with_detail(const char *message,const char *explanation,int code
   message="The Linux loader couldn't prepare this console";
   advice="Its GPU firmware or kernel check failed. Nothing was changed. Please report your model.";break;
  case ETIMEDOUT:
+  if(explanation)break; /* preserve stage-specific timeout diagnosis */
   message="GoldHEN didn't finish starting Linux";
   advice="Nothing was changed. Restart the PS4, load GoldHEN and try again.";break;
  }
@@ -187,7 +188,14 @@ int atv_launch_with_progress(void){
    installer_ui_boot_status(stage_message(last_stage),line);last_draw=now;
   }
   /* A timeout is a failure guard, never a condition for starting Linux. */
-  if(now-started>300000000ULL)return fail("Android TV startup did not complete",ETIMEDOUT);
+  if(now-started>300000000ULL){
+   snprintf(line,sizeof(line),"Boot timeout: last_stage=%d display_released=%d elapsed_s=%llu\n",
+    last_stage,released,(now-started)/1000000ULL);marker(line);
+   if(released)return fail_with_detail("Linux handoff did not finish",
+     "Linux was prepared and the app released the display. Compare the launcher log with fresh Linux logs.",ETIMEDOUT);
+   return fail_with_detail("GoldHEN did not finish preparing Linux",
+     "Preparation timed out; collect logs/launcher.log with the last reported stage.",ETIMEDOUT);
+  }
   sceKernelUsleep(50000);
  }
 }

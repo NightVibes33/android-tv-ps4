@@ -382,7 +382,35 @@ if grep -q '^SDIO_ID=02DF:912A$' /sys/class/bluetooth/hci0/device/uevent 2>/dev/
  printf '%s\n' '    setenv LD_PRELOAD /vendor/lib64/libatv-bluetooth-sd8797.so' >> /android/system/vendor/etc/init/android.hardware.bluetooth@1.1-service.vbt.rc
 fi
 chmod 644 /android/system/vendor/etc/init/android.hardware.graphics.composer@2.1-drmfb-service.rc
+# BEGIN atv-removable-usb-fstab
+# Register ONLY external disks connected before boot. The PS4's own disk
+# can appear behind a USB bridge; never expose that disk to Android vold.
+atv_write_removable_usb_fstab() {
+ local_fstab=$1 local_sysroot=$2
+ usb_index=0
+ for block in "$local_sysroot"/block/sd*; do
+  [ -L "$block" ] || continue
+  disk_name=${block##*/}
+  case "$disk_name" in sd[a-z]|sd[a-z][a-z]) ;; *) continue ;; esac
+  [ -d "$block/${disk_name}27" ] && continue
+  block_path=$(readlink -f "$block" 2>/dev/null) || continue
+  case "$block_path" in "$local_sysroot"/devices/*) ;; *) continue ;; esac
+  case "$block_path" in */usb[0-9]/*|*/usb[0-9][0-9]/*) ;; *) continue ;; esac
+  devpath=${block_path#"$local_sysroot"}
+  case "$devpath" in *[!a-zA-Z0-9_./:-]*) continue ;; esac
+  if printf '%s auto auto defaults voldmanaged=usb%d:auto\n' "$devpath" "$usb_index" >> "$local_fstab"; then
+   stage "External USB disk $disk_name registered for Android removable storage"
+   usb_index=$((usb_index + 1))
+  else
+   stage "Could not register USB disk $disk_name; Android will continue"
+  fi
+ done
+}
+# END atv-removable-usb-fstab
 printf '%s\n' 'none /cache tmpfs noatime,nosuid,nodev,mode=0770,uid=1000,gid=2001 defaults' > /android/fstab.mustang
+# Use exact enumerated disk paths, not a broad usb* pattern that could
+# expose the PS4's encrypted internal drive to the storage UI.
+atv_write_removable_usb_fstab /android/fstab.mustang /sys
 cp "$assets/android-child.sh" /run/androidtv-ps4/android-child.sh
 cp "$assets/binder-devices" /run/androidtv-ps4/binder-devices
 cp "$assets/xt_quota2.ko" /run/androidtv-ps4/xt_quota2.ko
