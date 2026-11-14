@@ -43,8 +43,8 @@ with tempfile.TemporaryDirectory() as tmp:
     assert fstab.read_text().splitlines() == ["none /cache tmpfs defaults"]
     # The PS4 drive was not identified: fail closed even if a USB disk exists.
     (sysroot / "block/sda").unlink()
-    fake_disk(sysroot, "sdb", "pci/usb2/2-1/host1/target1")
-    fstab.write_text("none /cache tmpfs defaults\\n")
+    (sysroot / "block/sdb").symlink_to(sysroot / "devices/pci/usb2/2-1/host1/target1/block/sdb")
+    fstab.write_text("none /cache tmpfs defaults\n")
     subprocess.run(["sh", "-c", shell, "test", str(fstab), str(sysroot)], check=True)
     assert fstab.read_text().splitlines() == ["none /cache tmpfs defaults"]
 print("PASS: preboot USB rules added; PS4 internal disk never exposed")
