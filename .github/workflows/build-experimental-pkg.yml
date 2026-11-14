@@ -1,0 +1,63 @@
+name: Experimental full Android TV PS4 PKG build
+on:
+  push:
+    branches: [fix/upstream-usb-boot-diagnostics]
+    paths:
+      - .github/workflows/build-experimental-pkg.yml
+      - tools/download-official-pkg.py
+      - tools/build-experimental-pkg.sh
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-experimental:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned build prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-18 lld-18 build-essential busybox-static \
+            libssl-dev zstd squashfs-tools xz-utils libarchive-tools unzip
+          python3 -m pip install --disable-pip-version-check pillow requests playwright
+          python3 -m playwright install --with-deps chromium
+          df -h .
+      - name: Build and validate experimental PKG from pinned official assets
+        run: bash tools/build-experimental-pkg.sh
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: PS4-Android-TV-14.00-part-00
+          path: build/ci/pieces/Android-TV-for-PS4.experimental.pkg.part-00
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: PS4-Android-TV-14.00-part-01
+          path: build/ci/pieces/Android-TV-for-PS4.experimental.pkg.part-01
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: PS4-Android-TV-14.00-part-02
+          path: build/ci/pieces/Android-TV-for-PS4.experimental.pkg.part-02
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: PS4-build-provenance
+          path: |
+            build/ci/pieces/SHA256SUMS
+            build/ci/pieces/release.json
+            build/ci/pieces/validation.txt
+            build/ci/pieces/JOIN-LINUX-MAC.txt
+            build/ci/pieces/runtime-inputs.json
+          if-no-files-found: ignore
+          retention-days: 14
