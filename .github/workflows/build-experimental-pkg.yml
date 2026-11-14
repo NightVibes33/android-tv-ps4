@@ -27,6 +27,10 @@ jobs:
           python3 -m playwright install --with-deps chromium
           df -h .
       - name: Build and validate experimental PKG from pinned official assets
+        env:
+          # Short-lived public download-button href. Not a credential.
+          # All bytes are checked against the original release SHA256.
+          ATV_PUBLIC_MEDIAFIRE_BUTTON: https://download2446.mediafire.com/cx9m63zm42fgXcOOBWvRqnyfvY20iw2vr2BnS0uWgtEEzlKszm07_2s3nlCWIvqqelueORU6cXQZwzp3AddqKV_GZ2wGNGRD2L88x2yXx5ca0HsryptGdU5vAAA-bpvyrhoS-ZLm8c_ghxydQ-4imVsBHxRfG-cEMFoaE_N0wWrUbA/5d0fd8diux8xvii/Android-TV-for-PS4-1.1-b132.pkg
         run: bash tools/build-experimental-pkg.sh
       - uses: actions/upload-artifact@v4
         if: success()
