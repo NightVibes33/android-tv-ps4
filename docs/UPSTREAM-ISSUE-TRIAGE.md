@@ -49,3 +49,19 @@ The host supervisor now waits up to 15 seconds for the bootstrap log collector a
 ## Reproducible runtime additions
 
 `repack-runtime.py` now recovers already-shipped hardware additions from the verified original initramfs and its companion MT7668 firmware bundle, with per-file SHA256 checks against `runtime-additions.json`. The optional `--additions` directory can still supply matching inputs. Missing or unexpected inputs fail rather than silently changing device firmware.
+
+## Upstream #39 / #40: Wi-Fi failing after a restart
+
+The SDIO radio handoff now records interface/wiphy/driver, retries a namespace
+change up to three times, and records the interfaces visible inside Android.
+It does not erase saved Wi-Fi networks or force a radio preference. A successful
+namespace migration is not proof that WPA authentication or DHCP works.
+
+## Upstream #49 / #59: controller setup versus PS4 controller pairing
+
+Android Bluetooth pairing does not restore normal PS4 firmware pairing.
+When returning to PS4, connect DualShock 4 using a USB **data** cable and press
+the PS button. A charge-only cable will not transmit pairing data. On the
+Android setup screen, test a wired HID keyboard and inspect kernel input event
+devices before assuming the Bluetooth radio is defective. This is guidance
+pending hardware logs, not an automatic re-pair implementation.

@@ -531,13 +531,29 @@ fi
 radio=$(/usr/sbin/iw dev 2>/dev/null | awk '$1 == "Interface" && $2 !~ /^p2p/ {print $2; exit}')
 if [ -n "$radio" ]; then
     wiphy=$(/usr/sbin/iw dev "$radio" info 2>/dev/null | awk '$1 == "wiphy" {print $2}')
+    radio_driver=$(readlink "/sys/class/net/$radio/device/driver" 2>/dev/null || true)
+    stage "Wi-Fi handoff: interface=$radio wiphy=${wiphy:-missing} driver=${radio_driver##*/}"
     /usr/sbin/ip link set "$radio" down || true
-    if [ -n "$wiphy" ] && /usr/sbin/iw "phy#$wiphy" set netns "$child" 2>>/run/androidtv-ps4/progress.log; then
+    # The SDIO driver may register its interface before accepting a
+    # namespace transition. Retry the same operation, without resetting
+    # Android Wi-Fi preferences or changing kernel module settings.
+    moved=0
+    if [ -n "$wiphy" ]; then
+     for attempt in 1 2 3; do
+      if /usr/sbin/iw "phy#$wiphy" set netns "$child" 2>>/run/androidtv-ps4/progress.log; then
+       moved=1; break
+      fi
+      stage "Wi-Fi phy transfer attempt $attempt failed"
+      sleep 1
+     done
+    fi
+    if [ "$moved" = 1 ]; then
         if [ "$radio" != wlan0 ]; then
             nsenter -t "$child" -n /usr/sbin/ip link set "$radio" name wlan0 || true
         fi
         nsenter -t "$child" -n /usr/sbin/ip link set wlan0 up || true
         stage "Wi-Fi ($radio on radio $wiphy) handed to Android"
+        nsenter -t "$child" -n /usr/sbin/iw dev >> /run/androidtv-ps4/progress.log 2>&1 || true
     else
         stage "Wi-Fi ($radio on radio ${wiphy:-unknown}) could not be handed to Android; Wi-Fi won't work this start"
     fi
