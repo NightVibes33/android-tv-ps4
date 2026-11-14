@@ -41,3 +41,11 @@ The old Android framework script always forced `1920x1080`. It now reads connect
 USB enumeration is now fail-closed if the PS4's internal partition 27 cannot be identified. This prevents an ambiguous USB bus from being exported to Android's storage manager.
 
 The CI workflow checks both policies and builds the isolated 14.00 kexec object. Its passing status only establishes host compatibility, not PS4 hardware behavior.
+
+## [#51](https://github.com/odiecay/android-tv-ps4/issues/51) and [#52](https://github.com/odiecay/android-tv-ps4/issues/52): PS4 Pro restart stalls
+
+The host supervisor now waits up to 15 seconds for the bootstrap log collector and refuses reboot if it is still writing. An optional Gboard APK bind mount is released before app mounts, overlay, SquashFS and UFS; missing Gboard is harmless. These changes are based on upstream Android 16 shutdown cleanup and have host regression tests. They reduce unsafe teardown conditions but do **not** prove a PS4 Pro can recover its HDMI or reset sequence.
+
+## Reproducible runtime additions
+
+`repack-runtime.py` now recovers already-shipped hardware additions from the verified original initramfs and its companion MT7668 firmware bundle, with per-file SHA256 checks against `runtime-additions.json`. The optional `--additions` directory can still supply matching inputs. Missing or unexpected inputs fail rather than silently changing device firmware.
