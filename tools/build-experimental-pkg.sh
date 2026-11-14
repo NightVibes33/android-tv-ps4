@@ -3,6 +3,9 @@
 set -euo pipefail
 # The pinned OpenOrbis PkgTool.Core uses .NET without a bundled ICU package.
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+# Matches the 13.52 pinned kexec blob byte-for-byte on Ubuntu 24.04.
+export ATV_KEXEC_CC=gcc-14
+
 ROOT="$(pwd)"
 # PkgTool.Core from OpenOrbis v0.5.4 targets the OpenSSL 1.1 ABI.
 # Ubuntu 26.04 only ships OpenSSL 3. Extract the official Ubuntu 20.04

@@ -11,7 +11,7 @@ permissions:
   contents: read
 jobs:
   build-experimental:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +21,7 @@ jobs:
       - name: Install pinned build prerequisites
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq clang-18 lld-18 build-essential busybox-static \
+          sudo apt-get install -y -qq clang-18 lld-18 gcc-14 build-essential busybox-static \
             libssl-dev zstd squashfs-tools xz-utils libarchive-tools unzip
           python3 -m pip install --disable-pip-version-check pillow requests playwright
           python3 -m playwright install --with-deps chromium
@@ -30,7 +30,7 @@ jobs:
         env:
           # Short-lived public download-button href. Not a credential.
           # All bytes are checked against the original release SHA256.
-          ATV_PUBLIC_MEDIAFIRE_BUTTON: https://download2446.mediafire.com/3zkw77eekljgLKrpWl51Qch15bfj3shONeyhA9SoLMxHtadMfhiELUWPG3DpAIkLDJA9v-MHUoQ0K_Rmv41cJReRtMVT7LVQneFei2YQdKMuiI0kPReQH5w2e-Xusn6irO-V56ZczcfwpAYM8ZxHO-_WlMI0WuGmTope8XUuekr2hA/5d0fd8diux8xvii/Android-TV-for-PS4-1.1-b132.pkg
+          ATV_PUBLIC_MEDIAFIRE_BUTTON: https://download2446.mediafire.com/n2llbbqhbjlgADOSUBmSRhf2QFv8HpXR-lgIr4GZrJxWks7Yo4dlMYotnExUB-8T4axp9CRhSjkoiHwH8XBU3_PORH7OIc6AA1lvr77FxYGTiRD0Z5FhcE5_DYURSQ5OEdoQzJQqOTCbdZTxeYgctfWnH4WApLE4jQi3sZKDVndU/5d0fd8diux8xvii/Android-TV-for-PS4-1.1-b132.pkg
         run: bash tools/build-experimental-pkg.sh
       - uses: actions/upload-artifact@v4
         if: success()
