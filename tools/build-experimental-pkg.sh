@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Experimental source-to-PKG build, with fully verified external inputs.
 set -euo pipefail
+# The pinned OpenOrbis PkgTool.Core uses .NET without a bundled ICU package.
+export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 ROOT="$(pwd)"
 mkdir -p "$ROOT/build/ci/source" "$ROOT/build/ci/toolchain" "$ROOT/build/ci/dist" "$ROOT/build/ci/runtime"
 echo "::group::Verify and prepare public OpenOrbis v0.5.4 toolchain"

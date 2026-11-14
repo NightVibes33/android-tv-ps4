@@ -30,7 +30,7 @@ jobs:
         env:
           # Short-lived public download-button href. Not a credential.
           # All bytes are checked against the original release SHA256.
-          ATV_PUBLIC_MEDIAFIRE_BUTTON: https://download2446.mediafire.com/cx9m63zm42fgXcOOBWvRqnyfvY20iw2vr2BnS0uWgtEEzlKszm07_2s3nlCWIvqqelueORU6cXQZwzp3AddqKV_GZ2wGNGRD2L88x2yXx5ca0HsryptGdU5vAAA-bpvyrhoS-ZLm8c_ghxydQ-4imVsBHxRfG-cEMFoaE_N0wWrUbA/5d0fd8diux8xvii/Android-TV-for-PS4-1.1-b132.pkg
+          ATV_PUBLIC_MEDIAFIRE_BUTTON: https://download2446.mediafire.com/uyu5feehz8ugJuve4wa0K6rkrcfyFE456PFMk97vuVx9dboFmt98AWj-6zNMP6pgqq1vBq2M0f41ImuwEVmRJARONlOZOVXf9Bg5uY3OoetlLbTibdES2CvSg0Jg1wVG8o6xdn9Eex3sXAFnW-cQ1sNL22qmjd68bnc2uEF7iUmY/5d0fd8diux8xvii/Android-TV-for-PS4-1.1-b132.pkg
         run: bash tools/build-experimental-pkg.sh
       - uses: actions/upload-artifact@v4
         if: success()
