@@ -1,3 +1,10 @@
 https://github.com/ps4-linux/ps4-linux-loader
 f70f43a60a973b3662daeb29c1f115d95408db93
 tag v25.1
+14.00 kexec offsets ported from ps4-linux-loader v25.2, via public fork snapshot:
+https://github.com/SENeoV/ps4-linux-loader-ps4linux
+commit 581438f804f5fc288cf310abad585f93260e4f1d
+linux/magic.h blob f33ef71335ad18d01b3d1be42f6c8a32a11043b7
+linux/fw_offsets.h 14.00 row used in source/atv-fw-1400.h
+The base loader and tested firmware 13.52 hash remain unchanged.
+FW 14.00 is an experimental source port; no console boot test.

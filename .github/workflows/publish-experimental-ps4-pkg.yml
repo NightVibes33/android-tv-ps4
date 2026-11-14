@@ -1,0 +1,116 @@
+name: Publish verified PS4 experimental PKG to GitHub Releases
+
+on:
+  push:
+    branches: [fix/upstream-usb-boot-diagnostics]
+    paths:
+      - .github/workflows/publish-experimental-ps4-pkg.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-verified-pkg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "43654075336"
+      SOURCE_COMMIT: "0a79d51a9de9cfb8ccba21c8a3d26062fb7aa6cd"
+      PACKAGE_SHA256: "61e2b5c26406b28ac3e6d2bfa38e45b7c8e9227ae7b715be72e51a540cd6de31"
+      RELEASE_TAG: "androidtv-fw1400-experimental-20261114"
+    steps:
+      - name: Retrieve already-built green PKG artifacts
+        run: |
+          set -euo pipefail
+          actual=$(gh run view "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --json conclusion,headSha --jq '[.conclusion,.headSha] | join(" ")')
+          test "$actual" = "success $SOURCE_COMMIT"
+          mkdir -p "$RUNNER_TEMP/ps4-artifacts" "$RUNNER_TEMP/ps4-release"
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/ps4-artifacts"
+          for n in 00 01 02; do
+            src="$RUNNER_TEMP/ps4-artifacts/PS4-Android-TV-14.00-part-$n/Android-TV-for-PS4.experimental.pkg.part-$n"
+            test -s "$src"
+            cp "$src" "$RUNNER_TEMP/ps4-release/"
+          done
+      - name: Verify exact PKG bytes and generate join scripts
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/ps4-release"
+          for n in 00 01 02; do
+            file="Android-TV-for-PS4.experimental.pkg.part-$n"
+            test -s "$file"
+            bytes=$(stat -c %s "$file")
+            test "$bytes" -lt 2147483648
+            printf '%s %s bytes\n' "$file" "$bytes"
+          done
+          cat Android-TV-for-PS4.experimental.pkg.part-00 Android-TV-for-PS4.experimental.pkg.part-01 Android-TV-for-PS4.experimental.pkg.part-02 | sha256sum | awk -v expected="$PACKAGE_SHA256" '{if ($1 != expected) exit 1; print "PASS: assembled PKG SHA256 " $1}'
+          printf '%s  Android-TV-for-PS4.pkg\n' "$PACKAGE_SHA256" > SHA256SUMS
+          cat > JOIN-LINUX-MAC.sh <<'JOINSH'
+          #!/usr/bin/env sh
+          set -eu
+          cat Android-TV-for-PS4.experimental.pkg.part-00 Android-TV-for-PS4.experimental.pkg.part-01 Android-TV-for-PS4.experimental.pkg.part-02 > Android-TV-for-PS4.pkg
+          shasum -a 256 Android-TV-for-PS4.pkg
+          echo "Compare the value above with SHA256SUMS before installing."
+          JOINSH
+          cat > JOIN-WINDOWS.cmd <<'JOINCMD'
+          @echo off
+          copy /b Android-TV-for-PS4.experimental.pkg.part-00+Android-TV-for-PS4.experimental.pkg.part-01+Android-TV-for-PS4.experimental.pkg.part-02 Android-TV-for-PS4.pkg
+          if errorlevel 1 exit /b 1
+          certutil -hashfile Android-TV-for-PS4.pkg SHA256
+          echo Compare the hash above with SHA256SUMS before installing.
+          JOINCMD
+          cp "$RUNNER_TEMP/ps4-artifacts/PS4-build-provenance/release.json" ./
+          cp "$RUNNER_TEMP/ps4-artifacts/PS4-build-provenance/validation.txt" ./
+          test -s release.json
+          test -s validation.txt
+      - name: Upload release assets and publish verified prerelease
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/ps4-release"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists; refusing overwrite"
+            exit 1
+          fi
+          cat > RELEASE-NOTES.md <<'NOTES'
+          # Android TV 13 for PS4, experimental firmware 14.00 package
+
+          This genuine PS4 PKG was built and validated by
+          [GitHub Actions 43654075336](https://github.com/NightVibes33/android-tv-ps4/actions/runs/43654075336)
+          at commit 0a79d51a9de9cfb8ccba21c8a3d26062fb7aa6cd.
+
+          IMPORTANT: Experimental and NOT verified to boot on actual PS4 hardware.
+          A successful package build does not prove USB, HDMI, Wi-Fi or restart works.
+
+          ## Download and assemble
+          GitHub enforces a 2 GiB maximum per release asset, so the 3.12 GB
+          PKG is distributed as THREE pieces. Download the three numbered parts
+          together with JOIN-WINDOWS.cmd or JOIN-LINUX-MAC.sh to one folder.
+          - Windows: run JOIN-WINDOWS.cmd
+          - macOS/Linux: run sh JOIN-LINUX-MAC.sh
+
+          Output: Android-TV-for-PS4.pkg
+          Final whole-file SHA256 (also in SHA256SUMS):
+          61e2b5c26406b28ac3e6d2bfa38e45b7c8e9227ae7b715be72e51a540cd6de31
+
+          Does not include Android 16 or a multiboot OS menu.
+          Firmware 14.02 is not supported.
+          NOTES
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" \
+            --title "PS4 Android TV 13 with experimental 14.00 support (hardware-untested)" \
+            --draft --prerelease --notes-file RELEASE-NOTES.md
+          gh release upload "$RELEASE_TAG" \
+            Android-TV-for-PS4.experimental.pkg.part-00 \
+            Android-TV-for-PS4.experimental.pkg.part-01 \
+            Android-TV-for-PS4.experimental.pkg.part-02 \
+            JOIN-WINDOWS.cmd JOIN-LINUX-MAC.sh SHA256SUMS release.json validation.txt \
+            --repo "$GITHUB_REPOSITORY"
+          count=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')
+          if [ "$count" -ne 8 ]; then
+            echo "Missing release files; leaving as draft"
+            exit 1
+          fi
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url,isDraft,isPrerelease,assets --jq '{url,isDraft,isPrerelease,assets:[.assets[]|{name,size}]}'

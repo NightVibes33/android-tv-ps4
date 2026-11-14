@@ -1,0 +1,30 @@
+name: Verify upstream issue experiments
+on:
+  push:
+    branches: [fix/upstream-usb-boot-diagnostics]
+  pull_request:
+    branches: [main]
+jobs:
+  host-usb-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate USB, firmware, and display policy
+        run: |
+          python3 releases/release-1.0/tests/test_usb_fstab.py
+          python3 releases/release-1.0/tests/test_firmware_1400.py
+          python3 releases/release-1.0/tests/test_display_resolution.py
+          python3 releases/release-1.0/tests/test_wifi_handoff.py
+          # Legacy installer/boot tests also need generated boot-inputs.h and
+          # package assets, so only run standalone host regressions here.
+          for test in test_bluetooth_adapter.py test_display_modes.py test_display_release.py test_power_cleanup.py; do
+            python3 "releases/release-1.0/tests/$test"
+          done
+      - name: Compile FW 14.00 kexec source
+        run: |
+          mkdir -p build/fw1400
+          make -s -C releases/release-1.0/loader-source/linux/ps4-kexec-common \
+            FW_DEFINE=PS4_14_00 BUILD_DIR="$GITHUB_WORKSPACE/build/fw1400" \
+            EXTRA_CFLAGS="-fcf-protection=none -mno-sse -mno-sse2 -mno-mmx -msoft-float"
+          nm -n build/fw1400/kexec.elf | awk '$3 == "kexec_init" && $1 ~ /^0+$/ {found=1} END {exit !found}'
+          readelf -r build/fw1400/kexec.elf | grep -F 'There are no relocations'

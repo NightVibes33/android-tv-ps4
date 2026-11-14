@@ -76,11 +76,18 @@ static int perform_power(const char *action){
  if(write_state(STATE "/power-request",request)){perror("power request");return 1;}
  fprintf(stderr,"[Android TV] Android has stopped; preparing console %s\n",action);
  /* The bootstrap monitor notices power-request and finishes its local logs. */
- for(int i=0;i<50&&access(STATE "/bootstrap-active",F_OK)==0;i++)usleep(100000);
+ for(int i=0;i<150&&access(STATE "/bootstrap-active",F_OK)==0;i++)usleep(100000);
+ if(access(STATE "/bootstrap-active",F_OK)==0){
+  fprintf(stderr,"Refusing console power operation: bootstrap log collector still active\n");
+  return 1;
+ }
  sync();
  /* These binds were created in the host before Android's mount namespace.
   * They survive Android init exiting and must be released before both the
   * system overlay and the app SquashFS, which also pins the PS4 filesystem. */
+ /* A host-side Gboard APK bind may outlive the Android PID namespace.
+  * Missing mounts are harmless; never lazily unmount user storage. */
+ if(unmount_path("/android/system/product/app/Gboard/Gboard.apk"))return 1;
  if(unmount_bundled_apps())return 1;
  const char *mounts[]={"/mnt/android-persistent","/android","/mnt/android-bundled-apps","/mnt/android-lower","/mnt/android-sfs","/mnt/android-share","/mnt/ps4-user"};
  for(size_t i=0;i<sizeof(mounts)/sizeof(mounts[0]);i++){

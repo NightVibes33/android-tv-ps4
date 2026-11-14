@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
-"""Compile the pinned v25.1 source with bounded allocation/ownership handling,
+"""Compile the v25.1-derived loader with separately sourced 14.00 offsets with bounded allocation/ownership handling,
 once per firmware in magic.h. The payload picks the blob for the running
 firmware, so one PKG covers every firmware the loader has offsets for."""
 from pathlib import Path
-import subprocess, sys, hashlib, json, re
+import subprocess, sys, hashlib, json, re, os, shutil
 root=Path(__file__).resolve().parent
 out=Path(sys.argv[1]).resolve();out.mkdir(parents=True,exist_ok=True)
 source=root/'loader-source/linux/ps4-kexec-common'
+# GCC 14 on Ubuntu 24.04 reproduces the 13.52 image's pinned SHA256.
+# Never substitute an unverified compiler output for the confirmed loader.
+COMPILER=os.environ.get('ATV_KEXEC_CC','gcc')
+if not re.fullmatch(r'gcc(?:-[0-9]+)?',COMPILER) or shutil.which(COMPILER) is None:
+    raise SystemExit('A supported GCC compiler is required; set ATV_KEXEC_CC to gcc-14')
+print('kexec compiler:',subprocess.check_output([COMPILER,'--version'],text=True).splitlines()[0],flush=True)
+
 # The 13.52 blob is pinned so loader changes are deliberate. 86ab8e60 was the
 # console-confirmed 1.1 loader; 2be911d9 stages the kernel and initramfs in
 # pieces (no large contiguous block, the cause of error 12), reports memory
@@ -16,10 +23,10 @@ CONFIRMED={1352:'2be911d9cc089e348afc2bc13bef070a2bcbb8ed79073771eed503d32b7745e
 defines=re.findall(r'^#(?:if|elif) defined\s+(PS4_\d+_\d+)|^#ifdef\s+(PS4_\d+_\d+)',
     (root/'loader-source/linux/magic.h').read_text(),re.M)
 defines=[a or b for a,b in defines]
-assert len(defines)==len(set(defines))==20,defines
+assert len(defines)==len(set(defines))==21,defines
 def build(define,directory):
-    subprocess.run(['make','-s','-C',str(source),'FW_DEFINE='+define,'BUILD_DIR='+str(directory),'clean'],check=True)
-    subprocess.run(['make','-s','-C',str(source),'FW_DEFINE='+define,'BUILD_DIR='+str(directory),
+    subprocess.run(['make','-s','-C',str(source),'CC='+COMPILER,'FW_DEFINE='+define,'BUILD_DIR='+str(directory),'clean'],check=True)
+    subprocess.run(['make','-s','-C',str(source),'CC='+COMPILER,'FW_DEFINE='+define,'BUILD_DIR='+str(directory),
         'EXTRA_CFLAGS=-fcf-protection=none -mno-sse -mno-sse2 -mno-mmx -msoft-float'],check=True)
     blob=(directory/'kexec.bin').read_bytes()
     assert 0<len(blob)<128*1024

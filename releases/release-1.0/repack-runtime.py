@@ -42,14 +42,36 @@ def main():
     # Hardware-support files (Slim/Pro Wi-Fi and Bluetooth) that the base
     # runtime lacks. Each must match runtime-additions.json exactly.
     additions=json.loads((ROOT/'runtime-additions.json').read_text())['files']
-    if additions and not a.additions:raise SystemExit('--additions is required for runtime-additions.json')
+    # Prefer exact data already inside the hash-verified original package.
+    # No external firmware or kernel modules are downloaded or substituted.
+    existing_bundle={}
+    bundle_path=a.assets/'mt7668-wifi.tar.gz'
+    if bundle_path.is_file():
+        with tarfile.open(fileobj=io.BytesIO(gzip.decompress(bundle_path.read_bytes())),mode='r:') as src:
+            for entry in src.getmembers():
+                if not entry.isfile():continue
+                stream=src.extractfile(entry)
+                if stream:existing_bundle[entry.name]=stream.read()
+    def pinned_addition(name,item):
+        supplied=a.additions/name if a.additions else None
+        if supplied is not None and supplied.is_file():
+            payload=supplied.read_bytes()
+        elif item.get('location')=='drive' and name in existing_bundle:
+            payload=existing_bundle[name]
+        elif item.get('location')!='drive' and name in entries:
+            payload=entries[name][1]
+        else:
+            raise SystemExit('Missing hardware addition '+name+'; use --additions with pinned source')
+        if digest(payload)!=item['sha256']:
+            raise SystemExit('Hardware addition SHA256 mismatch: '+name)
+        return payload
     inode=max(f[0] for f,_ in entries.values())+1
     dir_fields=entries['lib/firmware'][0];file_fields=entries['lib/firmware/regulatory.db'][0]
     drive=io.BytesIO()
     with tarfile.open(fileobj=drive,mode='w',format=tarfile.USTAR_FORMAT) as tar:
         for name,item in sorted(additions.items()):
             if item.get('location')!='drive':continue
-            data=(a.additions/name).read_bytes()
+            data=pinned_addition(name,item)
             if digest(data)!=item['sha256']:raise SystemExit('Addition does not match runtime-additions.json: '+name)
             # Drive files never ship in the initramfs, including from an older parent.
             entries.pop(name,None)
@@ -58,7 +80,7 @@ def main():
     wifi=gzip.compress(drive.getvalue(),mtime=0)
     for name,item in sorted(additions.items()):
         if item.get('location')=='drive':continue
-        data=(a.additions/name).read_bytes()
+        data=pinned_addition(name,item)
         if digest(data)!=item['sha256']:raise SystemExit('Addition does not match runtime-additions.json: '+name)
         parts=name.split('/')
         for depth in range(1,len(parts)):
