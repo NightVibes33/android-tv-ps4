@@ -1,0 +1,49 @@
+name: Diagnose pinned PS4 kexec compiler reproducibility
+on:
+  push:
+    branches: [fix/upstream-usb-boot-diagnostics]
+    paths: [.github/workflows/diagnose-kexec.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  match-confirmed-image:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            cc: gcc
+          - os: ubuntu-24.04
+            cc: gcc-11
+          - os: ubuntu-24.04
+            cc: gcc-12
+          - os: ubuntu-24.04
+            cc: gcc-13
+          - os: ubuntu-24.04
+            cc: gcc-14
+          - os: ubuntu-26.04
+            cc: gcc
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build original FW 13.52 image and report its SHA
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ${{ matrix.cc }} make binutils
+          mkdir -p "$GITHUB_WORKSPACE/build/kexec-probe"
+          ${{ matrix.cc }} --version | head -1
+          make -s -C releases/release-1.0/loader-source/linux/ps4-kexec-common \
+            FW_DEFINE=PS4_13_52 BUILD_DIR="$GITHUB_WORKSPACE/build/kexec-probe" \
+            CC=${{ matrix.cc }} \
+            EXTRA_CFLAGS="-fcf-protection=none -mno-sse -mno-sse2 -mno-mmx -msoft-float"
+          sha256sum build/kexec-probe/kexec.bin
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          actual=hashlib.sha256(Path('build/kexec-probe/kexec.bin').read_bytes()).hexdigest()
+          target="2be911d9cc089e348afc2bc13bef070a2bcbb8ed79073771eed503d32b7745ee"
+          print("PIN_MATCH:", actual==target)
+          print("PINNED:", target)
+          print("ACTUAL:", actual)
+          PY
