@@ -1,0 +1,56 @@
+name: Single-file PS4 PKG download (no ZIP, no parts)
+
+on:
+  push:
+    branches: [fix/upstream-usb-boot-diagnostics]
+    paths:
+      - .github/workflows/upload-single-ps4-pkg.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  single-pkg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: "43654075336"
+      SOURCE_COMMIT: "0a79d51a9de9cfb8ccba21c8a3d26062fb7aa6cd"
+      EXPECTED_SHA256: "61e2b5c26406b28ac3e6d2bfa38e45b7c8e9227ae7b715be72e51a540cd6de31"
+    steps:
+      - name: Stop obsolete split-release publishing workflow
+        run: |
+          # The user requested ONE downloadable PKG; do not finish the old
+          # multipart-release publication.
+          gh run cancel 43654929013 --repo "$GITHUB_REPOSITORY" || true
+      - name: Download verified original PKG build components
+        run: |
+          set -euo pipefail
+          actual=$(gh run view "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --json conclusion,headSha --jq '[.conclusion,.headSha] | join(" ")')
+          test "$actual" = "success $SOURCE_COMMIT"
+          mkdir -p "$RUNNER_TEMP/ps4-input" "$GITHUB_WORKSPACE/build/single"
+          for n in 00 01 02; do
+            gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+              --name "PS4-Android-TV-14.00-part-$n" --dir "$RUNNER_TEMP/ps4-input/$n"
+            test -s "$RUNNER_TEMP/ps4-input/$n/Android-TV-for-PS4.experimental.pkg.part-$n"
+          done
+      - name: Reassemble and verify the one original PS4 PKG
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/build/single"
+          cat "$RUNNER_TEMP/ps4-input/00/Android-TV-for-PS4.experimental.pkg.part-00" \
+              "$RUNNER_TEMP/ps4-input/01/Android-TV-for-PS4.experimental.pkg.part-01" \
+              "$RUNNER_TEMP/ps4-input/02/Android-TV-for-PS4.experimental.pkg.part-02" \
+              > Android-TV-for-PS4.pkg
+          echo "$EXPECTED_SHA256  Android-TV-for-PS4.pkg" | sha256sum -c -
+          stat -c 'Verified single PS4 package: %n (%s bytes)' Android-TV-for-PS4.pkg
+      - name: Upload one directly downloadable PKG (not a ZIP)
+        uses: actions/upload-artifact@v7
+        with:
+          path: build/single/Android-TV-for-PS4.pkg
+          archive: false
+          retention-days: 30
+          if-no-files-found: error
